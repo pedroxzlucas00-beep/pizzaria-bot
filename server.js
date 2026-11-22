@@ -4,13 +4,34 @@ const app = express();
 app.use(express.json());
 
 const TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_ID = process.env.PHONE_ID || '1451284713737889';
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'pizzaria_garagem_123';
+const PHONE_ID = process.env.PHONE_NUMBER_ID;
+const VERIFY = process.env.VERIFY_TOKEN || 'pizzaria123';
+
+// COLOQUE AQUI OS LINKS DO IMBB - DEPOIS QUE VOCÊ SUBIR AS FOTOS
+const FOTOS = {
+  salgadas: 'COLE_AQUI_LINK_FOLHA_1_2_3',
+  doces: 'COLE_AQUI_LINK_FOLHA_4',
+  pasteis: 'COLE_AQUI_LINK_FOLHA_5_6',
+  bebidas: 'COLE_AQUI_LINK_FOLHA_7_8_9'
+};
+
+const sessoes = {};
+
+async function enviarTexto(to, texto) {
+  await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, {
+    messaging_product: 'whatsapp', to, type: 'text', text: { body: texto }
+  }, { headers: { Authorization: `Bearer ${TOKEN}` } });
+}
+
+async function enviarFoto(to, link, legenda) {
+  await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, {
+    messaging_product: 'whatsapp', to, type: 'image',
+    image: { link, caption: legenda }
+  }, { headers: { Authorization: `Bearer ${TOKEN}` } });
+}
 
 app.get('/webhook', (req, res) => {
-  if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
-    return res.send(req.query['hub.challenge']);
-  }
+  if (req.query['hub.verify_token'] === VERIFY) return res.send(req.query['hub.challenge']);
   res.sendStatus(403);
 });
 
@@ -18,28 +39,78 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
   try {
     const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!msg) return;
+    if (!msg || !msg.text) return;
     const from = msg.from;
-    const text = (msg.text?.body || '').toLowerCase();
-    let reply = '';
-    if (text.includes('oi') || text.includes('ola') || text.includes('menu') || text.includes('cardapio')) {
-      reply = `🍕 *PIZZARIA A GARAGEM* 🍕\n\nFala! Bem-vindo!\n\nDigite:\n*1* - Ver Cardapio\n*2* - Fazer Pedido\n*3* - Falar com atendente`;
-    } else if (text === '1') {
-      reply = `📋 *CARDAPIO*\n\n1. Calabresa - R$ 45\n2. Frango c/ Catupiry - R$ 48\n3. Marguerita - R$ 42\n4. Portuguesa - R$ 50\n\nDigite *2* para pedir!`;
-    } else if (text === '2') {
-      reply = `Otimo! Me fala qual pizza voce quer e seu endereco?\nEx: *1 Calabresa, Rua X, 123*`;
-    } else if (text === '3') {
-      reply = `Te chamei um atendente! Ja ja te respondem aqui.`;
-    } else {
-      reply = `Entendi! Quer ver o cardapio? Digita *1* 🍕`;
+    const texto = msg.text.body.trim().toLowerCase();
+    if (!sessoes[from]) sessoes[from] = { etapa: 'inicio' };
+    const s = sessoes[from];
+
+    // INICIO
+    if (texto === 'oi' || texto === 'ola' || texto === 'menu' || texto === '0' || s.etapa === 'inicio') {
+      s.etapa = 'menu';
+      await enviarTexto(from, `🍕 *PIZZARIA A GARAGEM* 🍕\nFala! Bem-vindo!\n\nDigite:\n*1* - Ver Cardápio\n*2* - Fazer Pedido\n*3* - Falar com atendente`);
+      return;
     }
-    await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, {
-      messaging_product: 'whatsapp',
-      to: from,
-      text: { body: reply }
-    }, { headers: { Authorization: `Bearer ${TOKEN}` } });
+
+    // MENU PRINCIPAL
+    if (s.etapa === 'menu') {
+      if (texto === '1') {
+        s.etapa = 'cardapio';
+        await enviarTexto(from, `🍕 *CARDÁPIO A GARAGEM*\nDigite:\n*1* - Pizzas Salgadas\n*2* - Pizzas Doces\n*3* - Pastéis / Porções\n*4* - Bebidas / Açaí\n*0* - Voltar`);
+        return;
+      }
+      if (texto === '2') {
+        s.etapa = 'pedido_item';
+        await enviarTexto(from, `Beleza! Qual o número do item? Ex: *48*\nSe não sabe, digita *1* pra ver o cardápio.`);
+        return;
+      }
+      if (texto === '3') {
+        s.etapa = 'atendente';
+        await enviarTexto(from, `Blz! Um atendente já vai te chamar. Só aguardar um pouquinho! 🙏\nDigite *0* pra voltar ao menu.`);
+        return;
+      }
+    }
+
+    // CARDAPIO - ENVIA FOTO
+    if (s.etapa === 'cardapio') {
+      if (texto === '1') { await enviarFoto(from, FOTOS.salgadas, '🍕 Pizzas Salgadas - A Garagem'); }
+      if (texto === '2') { await enviarFoto(from, FOTOS.doces, '🍫 Pizzas Doces - A Garagem'); }
+      if (texto === '3') { await enviarFoto(from, FOTOS.pasteis, '🥟 Pastéis / Porções - A Garagem'); }
+      if (texto === '4') { await enviarFoto(from, FOTOS.bebidas, '🥤 Bebidas / Açaí - A Garagem'); }
+      if (texto === '0') { s.etapa = 'inicio'; await enviarTexto(from, `Digite *oi* pra voltar ao menu.`); return; }
+      await enviarTexto(from, `Quer ver outra parte? Digite 1, 2, 3 ou 4.\nOu digite *2* pra fazer pedido.`);
+      if (texto === '2') s.etapa = 'menu';
+      return;
+    }
+
+    // PEDIDO PASSO A PASSO - SEM BUG
+    if (s.etapa === 'pedido_item') {
+      s.item = texto;
+      s.etapa = 'pedido_tamanho';
+      await enviarTexto(from, `Boa! Item *${texto}* anotado.\nQual o tamanho? Digite: *M*, *G*, *F* ou *GG*`);
+      return;
+    }
+    if (s.etapa === 'pedido_tamanho') {
+      s.tamanho = texto.toUpperCase();
+      s.etapa = 'pedido_endereco';
+      await enviarTexto(from, `Tamanho *${s.tamanho}* anotado.\nAgora me manda seu endereço completo: Rua, número, bairro.`);
+      return;
+    }
+    if (s.etapa === 'pedido_endereco') {
+      s.endereco = texto;
+      s.etapa = 'pedido_pagamento';
+      await enviarTexto(from, `Endereço anotado: ${texto}\nQual a forma de pagamento? *Pix* ou *Cartão*?`);
+      return;
+    }
+    if (s.etapa === 'pedido_pagamento') {
+      s.pagamento = texto;
+      s.etapa = 'menu';
+      await enviarTexto(from, `✅ *PEDIDO CONFIRMADO!*\n\nItem: ${s.item}\nTamanho: ${s.tamanho}\nEndereço: ${s.endereco}\nPagamento: ${s.pagamento}\n\nJá estamos preparando! Obrigado! 🍕\n\nDigite *oi* pra novo pedido.`);
+      return;
+    }
+
   } catch (e) { console.log(e.message); }
 });
 
-app.get('/', (req,res) => res.send('Bot Pizzaria A Garagem ON'));
-app.listen(process.env.PORT || 3000, () => console.log('ON'));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log('Rodando ' + PORT));
