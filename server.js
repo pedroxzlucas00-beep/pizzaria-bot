@@ -10,10 +10,10 @@ const VERIFY = process.env.VERIFY_TOKEN || 'pizzaria123';
 // COLOQUE AQUI OS LINKS DO IMBB - DEPOIS QUE VOCÊ SUBIR AS FOTOS
 const BASE = 'https://raw.githubusercontent.com/pedroxzLucas00-beep/pizzaria-bot/main/';
 const FOTOS = {
-  salgadas: [BASE+'IMG-20261108-WA0213.jpg', BASE+'IMG-20261108-WA0214.jpg', BASE+'IMG-20261108-WA0215.jpg'],
-  doces: [BASE+'IMG-20261108-WA0216.jpg', BASE+'IMG-20261108-WA0217.jpg'],
-  pasteis: [BASE+'IMG-20261108-WA0218.jpg', BASE+'IMG-20261108-WA0219.jpg'],
-  bebidas: [BASE+'IMG-20261108-WA0220.jpg', BASE+'IMG-20261108-WA0221.jpg']
+  salgadas: [BASE+'IMG-20261108-WA0213.jpg', BASE+'IMG-20261108-WA0214.jpg', BASE+'IMG-20261108-WA0215.jpg', BASE+'IMG-20261108-WA0216.jpg', BASE+'IMG-20261108-WA0217.jpg'],
+  doces: [BASE+'IMG-20261108-WA0218.jpg'],
+  pasteis: [BASE+'IMG-20261108-WA0219.jpg', BASE+'IMG-20261108-WA0220.jpg'],
+  bebidas: [BASE+'IMG-20261108-WA0221.jpg']
 };
 
 async function enviarVariasFotos(to, lista, legenda) {
