@@ -8,12 +8,19 @@ const PHONE_ID = process.env.PHONE_NUMBER_ID;
 const VERIFY = process.env.VERIFY_TOKEN || 'pizzaria123';
 
 // COLOQUE AQUI OS LINKS DO IMBB - DEPOIS QUE VOCÊ SUBIR AS FOTOS
+const BASE = 'https://raw.githubusercontent.com/pedroxzLucas00-beep/pizzaria-bot/main/';
 const FOTOS = {
-  salgadas: 'COLE_AQUI_LINK_FOLHA_1_2_3',
-  doces: 'COLE_AQUI_LINK_FOLHA_4',
-  pasteis: 'COLE_AQUI_LINK_FOLHA_5_6',
-  bebidas: 'COLE_AQUI_LINK_FOLHA_7_8_9'
+  salgadas: [BASE+'IMG-20261108-WA0213.jpg', BASE+'IMG-20261108-WA0214.jpg', BASE+'IMG-20261108-WA0215.jpg'],
+  doces: [BASE+'IMG-20261108-WA0216.jpg', BASE+'IMG-20261108-WA0217.jpg'],
+  pasteis: [BASE+'IMG-20261108-WA0218.jpg', BASE+'IMG-20261108-WA0219.jpg'],
+  bebidas: [BASE+'IMG-20261108-WA0220.jpg', BASE+'IMG-20261108-WA0221.jpg']
 };
+
+async function enviarVariasFotos(to, lista, legenda) {
+  for (const link of lista) {
+    await enviarFoto(to, link, legenda);
+  }
+}
 
 const sessoes = {};
 
@@ -73,10 +80,10 @@ app.post('/webhook', async (req, res) => {
 
     // CARDAPIO - ENVIA FOTO
     if (s.etapa === 'cardapio') {
-      if (texto === '1') { await enviarFoto(from, FOTOS.salgadas, '🍕 Pizzas Salgadas - A Garagem'); }
-      if (texto === '2') { await enviarFoto(from, FOTOS.doces, '🍫 Pizzas Doces - A Garagem'); }
-      if (texto === '3') { await enviarFoto(from, FOTOS.pasteis, '🥟 Pastéis / Porções - A Garagem'); }
-      if (texto === '4') { await enviarFoto(from, FOTOS.bebidas, '🥤 Bebidas / Açaí - A Garagem'); }
+            if (texto === '1') { await enviarVariasFotos(from, FOTOS.salgadas, '🍕 Pizzas Salgadas - A Garagem'); }
+      if (texto === '2') { await enviarVariasFotos(from, FOTOS.doces, '🍫 Pizzas Doces - A Garagem'); }
+      if (texto === '3') { await enviarVariasFotos(from, FOTOS.pasteis, '🥟 Pastéis / Porções - A Garagem'); }
+      if (texto === '4') { await enviarVariasFotos(from, FOTOS.bebidas, '🥤 Bebidas / Açaí - A Garagem'); }
       if (texto === '0') { s.etapa = 'inicio'; await enviarTexto(from, `Digite *oi* pra voltar ao menu.`); return; }
       await enviarTexto(from, `Quer ver outra parte? Digite 1, 2, 3 ou 4.\nOu digite *2* pra fazer pedido.`);
       if (texto === '2') s.etapa = 'menu';
